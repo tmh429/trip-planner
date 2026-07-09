@@ -123,7 +123,7 @@ class Budget(BaseModel):
     total: int = Field(default=0, description="总费用")
 
 
-class TriPlan(BaseModel):
+class TripPlan(BaseModel):
     """旅行计划"""
     city: str = Field(..., description="目的地城市")
     start_date: str= Field(..., description="开始日期")
