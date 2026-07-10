@@ -1,72 +1,25 @@
 import json
 from typing import Dict, Any, List
 from hello_agents import SimpleAgent
+from hello_agents.agents.function_call_agent import FunctionCallAgent
 from ..services.amap_service import get_amap_mcp_tool
 from ..services.llm_service import get_llm
 from ..models.schemas import TripRequest, TripPlan, DayPlan, Attraction, Meal, WeatherInfo, Location, Hotel
 
 
+# FunctionCallAgent 使用 OpenAI 原生 function calling，工具调用 100% 可靠
+# 无需 TOOL_CALL 格式指令，LLM 会自动决定何时调用工具
 ATTRACTION_AGENT_PROMPT = """你是景点搜索专家。你的任务是根据城市和用户偏好搜索合适的景点。
 
-**重要提示:**
-你必须使用工具来搜索景点!不要自己编造景点信息!
-
-**工具调用格式:**
-使用maps_text_search工具时,必须严格按照以下格式:
-`[TOOL_CALL:amap_maps_text_search:keywords=景点关键词,city=城市名]`
-
-**示例:**
-用户: "搜索北京的历史文化景点"
-你的回复: [TOOL_CALL:amap_maps_text_search:keywords=历史文化,city=北京]
-
-用户: "搜索上海的公园"
-你的回复: [TOOL_CALL:amap_maps_text_search:keywords=公园,city=上海]
-
-**注意:**
-1. 必须使用工具,不要直接回答
-2. 格式必须完全正确,包括方括号和冒号
-3. 参数用逗号分隔
-"""
+**重要:** 你必须使用工具搜索真实景点数据，禁止编造景点信息。主动调用工具获取结果后再回答。"""
 
 WEATHER_AGENT_PROMPT = """你是天气查询专家。你的任务是查询指定城市的天气信息。
 
-**重要提示:**
-你必须使用工具来查询天气!不要自己编造天气信息!
+**重要:** 你必须使用工具查询真实天气数据，禁止编造天气信息。主动调用工具获取结果后再回答。"""
 
-**工具调用格式:**
-使用maps_weather工具时,必须严格按照以下格式:
-`[TOOL_CALL:amap_maps_weather:city=城市名]`
+HOTEL_AGENT_PROMPT = """你是酒店推荐专家。你的任务是根据城市推荐合适的酒店。
 
-**示例:**
-用户: "查询北京天气"
-你的回复: [TOOL_CALL:amap_maps_weather:city=北京]
-
-用户: "上海的天气怎么样"
-你的回复: [TOOL_CALL:amap_maps_weather:city=上海]
-
-**注意:**
-1. 必须使用工具,不要直接回答
-2. 格式必须完全正确,包括方括号和冒号
-"""
-
-HOTEL_AGENT_PROMPT = """你是酒店推荐专家。你的任务是根据城市和景点位置推荐合适的酒店。
-
-**重要提示:**
-你必须使用工具来搜索酒店!不要自己编造酒店信息!
-
-**工具调用格式:**
-使用maps_text_search工具搜索酒店时,必须严格按照以下格式:
-`[TOOL_CALL:amap_maps_text_search:keywords=酒店,city=城市名]`
-
-**示例:**
-用户: "搜索北京的酒店"
-你的回复: [TOOL_CALL:amap_maps_text_search:keywords=酒店,city=北京]
-
-**注意:**
-1. 必须使用工具,不要直接回答
-2. 格式必须完全正确,包括方括号和冒号
-3. 关键词使用"酒店"或"宾馆"
-"""
+**重要:** 你必须使用工具搜索真实酒店数据，禁止编造酒店信息。主动调用工具获取结果后再回答。"""
 
 PLANNER_AGENT_PROMPT = """你是行程规划专家。你的任务是根据景点信息和天气信息,生成详细的旅行计划。
 
@@ -162,30 +115,33 @@ class MultiAgentTripPlanner:
             print("  - 获取共享MCP工具...")
             self.amap_tool = get_amap_mcp_tool()
 
-            # 创建景点搜索Agent
+            # 创建景点搜索Agent（max_tool_iterations=2，足够一次搜索）
             print("  - 创建景点搜索Agent...")
-            self.attraction_agent = SimpleAgent(
+            self.attraction_agent = FunctionCallAgent(
                 name="景点搜索专家",
                 llm=self.llm,
-                system_prompt=ATTRACTION_AGENT_PROMPT
+                system_prompt=ATTRACTION_AGENT_PROMPT,
+                max_tool_iterations=2
             )
             self.attraction_agent.add_tool(self.amap_tool)
 
             # 创建天气查询Agent
             print("  - 创建天气查询Agent...")
-            self.weather_agent = SimpleAgent(
+            self.weather_agent = FunctionCallAgent(
                 name="天气查询专家",
                 llm=self.llm,
-                system_prompt=WEATHER_AGENT_PROMPT
+                system_prompt=WEATHER_AGENT_PROMPT,
+                max_tool_iterations=2
             )
             self.weather_agent.add_tool(self.amap_tool)
 
             # 创建酒店推荐Agent
             print("  - 创建酒店推荐Agent...")
-            self.hotel_agent = SimpleAgent(
+            self.hotel_agent = FunctionCallAgent(
                 name="酒店推荐专家",
                 llm=self.llm,
-                system_prompt=HOTEL_AGENT_PROMPT
+                system_prompt=HOTEL_AGENT_PROMPT,
+                max_tool_iterations=2
             )
             self.hotel_agent.add_tool(self.amap_tool)
 
@@ -235,24 +191,24 @@ class MultiAgentTripPlanner:
 
             # 步骤2: 天气查询Agent查询天气
             print("🌤️  步骤2: 查询天气...")
-            weather_query = f"请查询{request.city}的天气信息\n[TOOL_CALL:amap_maps_weather:city={request.city}]"
+            weather_query = f"请查询{request.city}的天气信息"
             weather_response = self.weather_agent.run(weather_query)
             print(f"天气查询结果: {weather_response[:200]}...\n")
 
             # 步骤3: 酒店推荐Agent搜索酒店
             print("🏨 步骤3: 搜索酒店...")
-            hotel_query = f"请搜索{request.city}的{request.accommodation}酒店\n[TOOL_CALL:amap_maps_text_search:keywords=酒店,city={request.city}]"
+            hotel_query = f"请搜索{request.city}的{request.accommodation}酒店"
             hotel_response = self.hotel_agent.run(hotel_query)
             print(f"酒店搜索结果: {hotel_response[:200]}...\n")
 
-            # 步骤4: 用 LLM 直接整合信息生成计划（绕过 SimpleAgent，避免无工具时返回空）
+            # 步骤4: 用 LLM 直接整合信息生成计划
             print("📋 步骤4: 生成行程计划...")
             planner_query = self._build_planner_query(request, attraction_response, weather_response, hotel_response)
             messages = [
                 {"role": "system", "content": PLANNER_AGENT_PROMPT},
                 {"role": "user", "content": planner_query}
             ]
-            planner_response = self.llm.invoke(messages, max_tokens=4096)
+            planner_response = self.llm.invoke(messages, max_tokens=8192)
             print(f"行程规划结果: {planner_response[:300]}...\n")
 
             # 解析最终计划
@@ -271,26 +227,16 @@ class MultiAgentTripPlanner:
             return self._create_fallback_plan(request)
 
     def _build_attraction_query(self, request: TripRequest) -> str:
-        """构建景点搜索查询 - 直接包含工具调用"""
-        keywords = []
-        if request.preferences:
-            # 只取第一个偏好作为关键词
-            keywords = request.preferences[0]
-        else:
-            keywords = "景点"
+        """构建景点搜索查询"""
+        keywords = request.preferences[0] if request.preferences else "景点"
 
-        # 直接返回工具调用格式
-        query = f"请使用amap_maps_text_search工具搜索{request.city}的{keywords}相关景点。\n[TOOL_CALL:amap_maps_text_search:keywords={keywords},city={request.city}]"
+        query = f"请搜索{request.city}的{keywords}相关景点，返回详细的景点名称、地址、坐标和介绍"
+        if request.free_text_input:
+            query += f"\n额外要求: {request.free_text_input}"
         return query
 
     def _build_planner_query(self, request: TripRequest, attractions: str, weather: str, hotels: str = "") -> str:
         """构建行程规划查询"""
-        # 截断过长输入，避免 prompt 过大导致 LLM 超时
-        max_input_len = 1500
-        attractions = attractions[:max_input_len] + ("..." if len(attractions) > max_input_len else "")
-        weather = weather[:max_input_len] + ("..." if len(weather) > max_input_len else "")
-        hotels = hotels[:max_input_len] + ("..." if len(hotels) > max_input_len else "")
-
         query = f"""请根据以下信息生成{request.city}的{request.travel_days}天旅行计划:
 
 **基本信息:**
@@ -325,7 +271,7 @@ class MultiAgentTripPlanner:
 
     def _parse_response(self, response: str, request: TripRequest) -> TripPlan:
         """
-        解析Agent响应
+        解析Agent响应，带自动修复常见 JSON 格式问题
 
         Args:
             response: Agent响应文本
@@ -334,9 +280,10 @@ class MultiAgentTripPlanner:
         Returns:
             旅行计划
         """
+        import re
+
         try:
             # 尝试从响应中提取JSON
-            # 查找JSON代码块
             if "```json" in response:
                 json_start = response.find("```json") + 7
                 json_end = response.find("```", json_start)
@@ -346,25 +293,62 @@ class MultiAgentTripPlanner:
                 json_end = response.find("```", json_start)
                 json_str = response[json_start:json_end].strip()
             elif "{" in response and "}" in response:
-                # 直接查找JSON对象
                 json_start = response.find("{")
                 json_end = response.rfind("}") + 1
                 json_str = response[json_start:json_end]
             else:
                 raise ValueError("响应中未找到JSON数据")
 
-            # 解析JSON
-            data = json.loads(json_str)
+            # 尝试直接解析
+            try:
+                data = json.loads(json_str)
+            except json.JSONDecodeError as je:
+                print(f"⚠️  JSON解析失败，尝试自动修复: {je}")
+                json_str = self._repair_json(json_str)
+                data = json.loads(json_str)
+                print("✅ JSON修复成功")
 
             # 转换为TripPlan对象
             trip_plan = TripPlan(**data)
-
             return trip_plan
 
         except Exception as e:
             print(f"⚠️  解析响应失败: {str(e)}")
+            print(f"   原始响应前500字符: {response[:500]}")
             print(f"   将使用备用方案生成计划")
             return self._create_fallback_plan(request)
+
+    @staticmethod
+    def _repair_json(json_str: str) -> str:
+        """修复常见的 LLM 输出 JSON 问题"""
+        import re
+
+        # 1. 移除尾部逗号（如 {"a":1,} → {"a":1}）
+        json_str = re.sub(r',\s*}', '}', json_str)
+        json_str = re.sub(r',\s*]', ']', json_str)
+
+        # 2. 如果最后一个字符串未闭合，补上引号
+        # 找到最后一个引号位置，检查字符串是否完整
+        if json_str.count('"') % 2 != 0:
+            # 在末尾补一个引号
+            json_str = json_str + '"'
+
+        # 3. 补全缺失的闭合括号
+        open_braces = json_str.count('{') - json_str.count('}')
+        open_brackets = json_str.count('[') - json_str.count(']')
+
+        # 先闭合字符串：如果末尾在字符串中间，加引号
+        if json_str.rstrip()[-1] not in '}]"':
+            # 简单截断修复：找到最后一个完整的键值对
+            last_comma = json_str.rfind(',')
+            if last_comma > 0:
+                json_str = json_str[:last_comma]
+
+        # 补括号
+        json_str += ']' * open_brackets
+        json_str += '}' * open_braces
+
+        return json_str
 
     def _create_fallback_plan(self, request: TripRequest) -> TripPlan:
         """创建备用计划(当Agent失败时)"""
