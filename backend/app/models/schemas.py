@@ -95,8 +95,8 @@ class WeatherInfo(BaseModel):
     date: str = Field(..., description="日期 YYYY-MM-DD")
     day_weather: str = Field(default="", description="白天天气")
     night_weather: str = Field(default="", description="夜间天气")
-    day_temp: str = Field(default="", description="白天温度")
-    night_temp: str = Field(default="", description="夜间温度")
+    day_temp: float = Field(default=0.0, description="白天温度")
+    night_temp: float = Field(default=0.0, description="夜间温度")
     wind_direction: str = Field(default="", description="风向")
     wind_power: str = Field(default="", description="风力")
 
@@ -138,7 +138,7 @@ class TripPlanResponse(BaseModel):
     """旅行计划相应"""
     success: bool = Field(..., description="是否成功")
     message: str = Field(default="", description="消息")
-    data: Optional[TriPlan] = Field(default=None, description="旅行计划数据")
+    data: Optional[TripPlan] = Field(default=None, description="旅行计划数据")
 
 
 class POIInfo(BaseModel):

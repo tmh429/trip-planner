@@ -235,20 +235,24 @@ class MultiAgentTripPlanner:
 
             # 步骤2: 天气查询Agent查询天气
             print("🌤️  步骤2: 查询天气...")
-            weather_query = f"请查询{request.city}的天气信息"
+            weather_query = f"请查询{request.city}的天气信息\n[TOOL_CALL:amap_maps_weather:city={request.city}]"
             weather_response = self.weather_agent.run(weather_query)
             print(f"天气查询结果: {weather_response[:200]}...\n")
 
             # 步骤3: 酒店推荐Agent搜索酒店
             print("🏨 步骤3: 搜索酒店...")
-            hotel_query = f"请搜索{request.city}的{request.accommodation}酒店"
+            hotel_query = f"请搜索{request.city}的{request.accommodation}酒店\n[TOOL_CALL:amap_maps_text_search:keywords=酒店,city={request.city}]"
             hotel_response = self.hotel_agent.run(hotel_query)
             print(f"酒店搜索结果: {hotel_response[:200]}...\n")
 
-            # 步骤4: 行程规划Agent整合信息生成计划
+            # 步骤4: 用 LLM 直接整合信息生成计划（绕过 SimpleAgent，避免无工具时返回空）
             print("📋 步骤4: 生成行程计划...")
             planner_query = self._build_planner_query(request, attraction_response, weather_response, hotel_response)
-            planner_response = self.planner_agent.run(planner_query)
+            messages = [
+                {"role": "system", "content": PLANNER_AGENT_PROMPT},
+                {"role": "user", "content": planner_query}
+            ]
+            planner_response = self.llm.invoke(messages, max_tokens=4096)
             print(f"行程规划结果: {planner_response[:300]}...\n")
 
             # 解析最终计划
@@ -386,9 +390,15 @@ class MultiAgentTripPlanner:
                     for j in range(2)
                 ],
                 meals=[
-                    Meal(type="breakfast", name=f"第{i + 1}天早餐", description="当地特色早餐"),
-                    Meal(type="lunch", name=f"第{i + 1}天午餐", description="午餐推荐"),
-                    Meal(type="dinner", name=f"第{i + 1}天晚餐", description="晚餐推荐")
+                    Meal(type="breakfast", name=f"第{i + 1}天早餐", address=f"{request.city}市",
+                         location=Location(longitude=116.4, latitude=39.9),
+                         description="当地特色早餐"),
+                    Meal(type="lunch", name=f"第{i + 1}天午餐", address=f"{request.city}市",
+                         location=Location(longitude=116.4, latitude=39.9),
+                         description="午餐推荐"),
+                    Meal(type="dinner", name=f"第{i + 1}天晚餐", address=f"{request.city}市",
+                         location=Location(longitude=116.4, latitude=39.9),
+                         description="晚餐推荐")
                 ]
             )
             days.append(day_plan)
