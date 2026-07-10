@@ -253,23 +253,23 @@ const handleSubmit = async () => {
   loadingProgress.value = 0
   loadingStatus.value = '正在初始化...'
 
-  // 模拟进度更新
+  // 模拟进度更新（放慢速度，等后端慢慢跑）
   const progressInterval = setInterval(() => {
     if (loadingProgress.value < 90) {
-      loadingProgress.value += 10
+      loadingProgress.value += 3
 
       // 更新状态文本
-      if (loadingProgress.value <= 30) {
-        loadingStatus.value = '🔍 正在搜索景点...'
+      if (loadingProgress.value <= 25) {
+        loadingStatus.value = '正在搜索景点...'
       } else if (loadingProgress.value <= 50) {
-        loadingStatus.value = '🌤️ 正在查询天气...'
-      } else if (loadingProgress.value <= 70) {
-        loadingStatus.value = '🏨 正在推荐酒店...'
+        loadingStatus.value = '正在查询天气...'
+      } else if (loadingProgress.value <= 75) {
+        loadingStatus.value = '正在推荐酒店...'
       } else {
-        loadingStatus.value = '📋 正在生成行程计划...'
+        loadingStatus.value = '正在生成行程计划...'
       }
     }
-  }, 500)
+  }, 1000)
 
   try {
     const requestData: TripFormData = {

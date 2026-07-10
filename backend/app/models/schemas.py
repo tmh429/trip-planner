@@ -60,8 +60,8 @@ class Meal(BaseModel):
     """餐饮信息"""
     type: str = Field(..., description="餐饮类型: breakfast/lunch/dinner/snack")
     name: str = Field(..., description="餐饮名称")
-    address: str = Field(..., description="地址")
-    location: Location = Field(..., description="经纬度坐标")
+    address: str = Field(default="", description="地址")
+    location: Optional[Location] = Field(default=None, description="经纬度坐标")
     description: str = Field(..., description="餐饮描述")
     estimated_cost: int = Field(default=0, description="预估费用（元）")
 

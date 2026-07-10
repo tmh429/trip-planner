@@ -54,9 +54,10 @@ class TestWeatherInfo:
 
 
 class TestMeal:
-    def test_requires_address_and_location(self):
-        with pytest.raises(Exception):
-            Meal(type="breakfast", name="早餐", description="描述")
+    def test_address_and_location_optional(self):
+        m = Meal(type="breakfast", name="早餐", description="描述")
+        assert m.address == ""
+        assert m.location is None
 
     def test_create_valid_with_default_cost(self):
         m = Meal(

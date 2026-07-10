@@ -95,8 +95,7 @@ class TestFallbackPlan:
             assert day.day_index == i
             assert len(day.attractions) == 2
             assert len(day.meals) == 3
-            assert day.meals[0].address  # 之前报错的字段
-            assert day.meals[0].location
+            assert day.meals[0].name  # 必填字段
 
 
 def test_planner_prompt_contains_meal_fields():

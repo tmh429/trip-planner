@@ -390,15 +390,9 @@ class MultiAgentTripPlanner:
                     for j in range(2)
                 ],
                 meals=[
-                    Meal(type="breakfast", name=f"第{i + 1}天早餐", address=f"{request.city}市",
-                         location=Location(longitude=116.4, latitude=39.9),
-                         description="当地特色早餐"),
-                    Meal(type="lunch", name=f"第{i + 1}天午餐", address=f"{request.city}市",
-                         location=Location(longitude=116.4, latitude=39.9),
-                         description="午餐推荐"),
-                    Meal(type="dinner", name=f"第{i + 1}天晚餐", address=f"{request.city}市",
-                         location=Location(longitude=116.4, latitude=39.9),
-                         description="晚餐推荐")
+                    Meal(type="breakfast", name=f"第{i + 1}天早餐", description="当地特色早餐"),
+                    Meal(type="lunch", name=f"第{i + 1}天午餐", description="午餐推荐"),
+                    Meal(type="dinner", name=f"第{i + 1}天晚餐", description="晚餐推荐")
                 ]
             )
             days.append(day_plan)
