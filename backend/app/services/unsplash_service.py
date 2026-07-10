@@ -14,13 +14,14 @@ class UnsplashService:
         self.access_key = settings.unsplash_access_key
         self.base_url = "https://api.unsplash.com"
 
-    def search_photos(self, query: str, per_page: int = 5) -> List[dict]:
+    def search_photos(self, query: str, per_page: int = 5, page: int = 1) -> List[dict]:
         """
         搜索图片
 
         Args:
             query: 搜索关键词
             per_page: 每页数量
+            page: 页码
 
         Returns:
             图片列表
@@ -30,7 +31,9 @@ class UnsplashService:
             params = {
                 "query": query,
                 "per_page": per_page,
-                "client_id": self.access_key
+                "page": page,
+                "client_id": self.access_key,
+                "order_by": "relevant"  # 按相关性排序，避免总是返回热门结果
             }
 
             response = requests.get(url, params=params, timeout=10)
@@ -58,7 +61,7 @@ class UnsplashService:
 
     def get_photo_url(self, query: str) -> Optional[str]:
         """
-        获取单张图片URL
+        获取单张图片URL，通过随机翻页增加图片多样性
 
         Args:
             query: 搜索关键词
@@ -66,7 +69,10 @@ class UnsplashService:
         Returns:
             图片URL
         """
-        photos = self.search_photos(query, per_page=1)
+        import random
+        # 随机取第1~3页，同景点也能拿到不同图片
+        page = random.randint(1, 3)
+        photos = self.search_photos(query, per_page=1, page=page)
         if photos:
             return photos[0].get("url")
         return None

@@ -424,30 +424,38 @@ const getMealLabel = (type: string): string => {
   return labels[type] || type
 }
 
-// 加载所有景点图片
+// 加载所有景点图片（串行请求，避免 Unsplash 限流）
 const loadAttractionPhotos = async () => {
   if (!tripPlan.value) return
 
-  const promises: Promise<void>[] = []
-
+  // 收集所有景点（去重）
+  const seen = new Set<string>()
+  const attractions: { name: string }[] = []
   tripPlan.value.days.forEach(day => {
     day.attractions.forEach(attraction => {
-      const promise = fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/poi/photo?name=${encodeURIComponent(attraction.name)}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.data.photo_url) {
-            attractionPhotos.value[attraction.name] = data.data.photo_url
-          }
-        })
-        .catch(err => {
-          console.error(`获取${attraction.name}图片失败:`, err)
-        })
-
-      promises.push(promise)
+      if (!seen.has(attraction.name)) {
+        seen.add(attraction.name)
+        attractions.push(attraction)
+      }
     })
   })
 
-  await Promise.all(promises)
+  // 串行请求，每个间隔 300ms，避免 Unsplash 50 req/h 限流
+  for (let i = 0; i < attractions.length; i++) {
+    const attraction = attractions[i]
+    try {
+      if (i > 0) {
+        await new Promise(resolve => setTimeout(resolve, 300))
+      }
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/poi/photo?name=${encodeURIComponent(attraction.name)}`)
+      const data = await res.json()
+      if (data.success && data.data.photo_url) {
+        attractionPhotos.value[attraction.name] = data.data.photo_url
+      }
+    } catch (err) {
+      console.error(`获取${attraction.name}图片失败:`, err)
+    }
+  }
 }
 
 // 获取景点图片

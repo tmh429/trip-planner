@@ -285,6 +285,12 @@ class MultiAgentTripPlanner:
 
     def _build_planner_query(self, request: TripRequest, attractions: str, weather: str, hotels: str = "") -> str:
         """构建行程规划查询"""
+        # 截断过长输入，避免 prompt 过大导致 LLM 超时
+        max_input_len = 1500
+        attractions = attractions[:max_input_len] + ("..." if len(attractions) > max_input_len else "")
+        weather = weather[:max_input_len] + ("..." if len(weather) > max_input_len else "")
+        hotels = hotels[:max_input_len] + ("..." if len(hotels) > max_input_len else "")
+
         query = f"""请根据以下信息生成{request.city}的{request.travel_days}天旅行计划:
 
 **基本信息:**
