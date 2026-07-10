@@ -2,7 +2,7 @@ from typing import List, Dict, Any, Optional
 
 from hello_agents.tools import MCPTool
 from ..config import get_settings
-from ..models import POIInfo, WeatherInfo, Location
+from ..models.schemas import POIInfo, WeatherInfo, Location
 
 _amap_mcp_tool = None
 
